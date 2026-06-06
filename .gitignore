@@ -1,0 +1,9 @@
+# 重いデータファイル
+citymodel/data/*.gml
+citymodel/data/*.zip
+
+# 計算結果のキャッシュ
+*.mat
+
+# 出力画像（必要なら個別にコメントアウト）
+*.png
