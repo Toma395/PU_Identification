@@ -250,6 +250,15 @@ for mi = 1:3
     fprintf('保存: raytracing/%s\n', pnames{mi});
 end
 
+%% .mat 保存（plot_overlay.m が再計算なしで読み込めるように）
+mat_path = fullfile(base_dir, 'plateau_results.mat');
+save(mat_path, ...
+    'acc_map', 'n_walls_map', 'snr_etc_map', ...
+    'los_mask', 'nlos_mask', ...
+    'x_vec', 'y_vec', 'X_grid', 'Y_grid', ...
+    'etc_xy', 'uav_z', 'wall_loss_db', 'N_grid');
+fprintf('計算結果保存: raytracing/plateau_results.mat\n');
+
 fprintf('\nPhase 4-③ raytrace_plateau (Step1): OK\n');
 
 
