@@ -6,4 +6,4 @@ citymodel/data/*.zip
 *.mat
 
 # 出力画像（必要なら個別にコメントアウト）
-*.png
+# *.png
