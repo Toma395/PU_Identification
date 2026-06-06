@@ -180,7 +180,7 @@ for mi = 1:3
         'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
 yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
-yline(0.5,'k:','50%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+yline(0.5,'k:','HandleVisibility','off');
 xlabel('マルチパス数 L（1=直接波のみ）','FontSize',14);
 ylabel('Accuracy','FontSize',14);
 title(sprintf('マルチパス vs ETC検出精度  (SNR=%ddB, \\tau_{max}=%dサンプル=%.1f\\mus)', ...
@@ -238,7 +238,7 @@ for pi = 1:2
     ylim([0, max(abs(cv(1:n_show)))*1.15 + eps]);
 end
 sgtitle('プリアンブル相関波形  L=1 vs L=10  (ETC + AWGN SNR=20dB, seed=37)', ...
-    'FontSize',15);
+    'FontSize',15, 'Color',[0.15 0.15 0.15]);
 apply_paper_style(fig2);
 saveas(fig2, fullfile(base_dir,'mp_corr_shape.png'));
 fprintf('保存: experiments/mp_corr_shape.png\n');
@@ -250,7 +250,7 @@ for mi = 1:3
     plot(sir_list_cmb, acc_cmb(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
         'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
 xlabel('SIR [dB]  (ETC電力 / UAV干渉電力)','FontSize',14);
 ylabel('Accuracy','FontSize',14);
 title(sprintf('複合条件: マルチパス(L=%d) + UAV干渉  (SNR=%ddB)', L_cmb, snr_db),'FontSize',16);

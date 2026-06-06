@@ -101,6 +101,11 @@ text(ax, etc_xy(1)+18, etc_xy(2)+5, 'ETC', ...
 x_leg = x_vec(end) - 180;
 y_leg = y_vec(end) - 30;
 dy    = 28;
+% 凡例背景ボックス（白・黒枠）
+lx1 = x_leg-32;  lx2 = x_leg+178;
+ly1 = y_leg-3*dy-16;  ly2 = y_leg+16;
+patch(ax, [lx1 lx2 lx2 lx1 lx1], [ly1 ly1 ly2 ly2 ly1], 'w', ...
+    'EdgeColor',[0.15 0.15 0.15], 'LineWidth', 1.2, 'HandleVisibility','off');
 text(ax, x_leg, y_leg,      '■ 識別精度 (Combined)', 'Color','k','FontSize',10,'FontWeight','bold');
 text(ax, x_leg, y_leg-dy,   '── 90% ライン',          'Color','k','FontSize',10);
 text(ax, x_leg, y_leg-2*dy, '-- 50% ライン',          'Color',[1.0 0.6 0.3],'FontSize',10);

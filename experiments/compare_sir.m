@@ -243,8 +243,9 @@ saveas(fig2, fullfile(base_dir,'sir_roc.png'));
 fprintf('保存: experiments/sir_roc.png\n');
 
 %% ③ 干渉UAV数 vs 精度（問い2）
-fig3 = figure('Visible','off','Color','w','Position',[0 0 900 500]);
-ax3 = axes(fig3);
+fig3 = figure('Visible','off','Color','w','Position',[0 0 900 620]);
+main_pos = [0.12, 0.09, 0.78, 0.58];   % 上マージン 33%確保
+ax3 = axes(fig3, 'Position', main_pos);
 hold(ax3,'on'); grid(ax3,'on'); box(ax3,'on');
 for mi = 1:3
     plot(ax3, n_uav_list, acc_q2(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
@@ -253,9 +254,9 @@ end
 yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
 xlabel(ax3,'干渉UAV数','FontSize',14);
 ylabel(ax3,'Accuracy','FontSize',14);
-title(ax3, sprintf('問い2: 干渉UAV数 vs ETC検出精度  (SIR=%.0fdB/UAV)', sir_q2_db),'FontSize',16);
+% title はsgtitleに移動（ax3 title と ax3b 上軸ラベルの重なり回避）
 % 上軸に実効SIR表示
-ax3b = axes(fig3,'Position',ax3.Position, ...
+ax3b = axes(fig3,'Position',main_pos, ...
     'XAxisLocation','top','YAxisLocation','right','Color','none');
 ax3b.XTick      = n_uav_list;
 ax3b.XLim       = ax3.XLim;
@@ -266,6 +267,12 @@ ax3b.YTick = []; ax3b.YColor = 'none';
 axes(ax3);
 legend(ax3,'Location','northeast','FontSize',12);
 apply_paper_style(fig3);
+% apply_paper_style 後に位置を強制（FontSize変更による自動レイアウト崩れを防ぐ）
+ax3.Position  = main_pos;
+ax3b.Position = main_pos;
+% sgtitle は figure 最上部（ax3b の上軸ラベルの更に上）に配置される
+sgtitle(fig3, sprintf('問い2: 干渉UAV数 vs ETC検出精度  (SIR=%.0fdB/UAV)', sir_q2_db), ...
+    'FontSize', 14, 'Color', [0.15 0.15 0.15]);
 saveas(fig3, fullfile(base_dir,'nuav_accuracy.png'));
 fprintf('保存: experiments/nuav_accuracy.png\n');
 

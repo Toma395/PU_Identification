@@ -56,4 +56,23 @@ for i = 1:numel(all_leg)
     all_leg(i).Box     = 'on';
     all_leg(i).FontSize = max(all_leg(i).FontSize, opt.font_size - 2);
 end
+
+% Force all text elements to near-black (prevents gray-on-white from dark theme reversal)
+dark = [0.15 0.15 0.15];
+for i = 1:numel(all_ax)
+    ax = all_ax(i);
+    if isequal(ax.Color, 'none'); continue; end
+    ax.XColor = dark;
+    ax.YColor = dark;
+    ax.Title.Color  = dark;
+    ax.XLabel.Color = dark;
+    ax.YLabel.Color = dark;
+end
+for i = 1:numel(all_leg)
+    all_leg(i).TextColor = dark;
+end
+all_cb = findall(fig, 'Type', 'ColorBar');
+for i = 1:numel(all_cb)
+    all_cb(i).Color = dark;
+end
 end
