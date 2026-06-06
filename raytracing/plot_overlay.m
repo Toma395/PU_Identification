@@ -8,6 +8,7 @@
 
 base_dir = fileparts(which('plot_overlay'));
 addpath(fullfile(base_dir,'..','citymodel'));
+addpath(fullfile(base_dir,'..'));          % apply_paper_style
 
 %% ─────────────────────────────────────────────────────────────────
 %% 計算結果の読み込み
@@ -62,7 +63,7 @@ fprintf('輪郭描画対象: %d棟\n\n', n_drawn);
 %% ─────────────────────────────────────────────────────────────────
 %% 描画
 %% ─────────────────────────────────────────────────────────────────
-fig = figure('Visible','off', 'Position',[0 0 1400 1200]);
+fig = figure('Visible','off', 'Color','w', 'Position',[0 0 1400 1200]);
 ax  = axes(fig, 'Position',[0.07 0.08 0.80 0.85]);
 hold(ax,'on');
 
@@ -73,11 +74,11 @@ clim(ax, [0.4 1.0]);
 axis(ax,'xy');
 
 % ── 建物フットプリント輪郭（NaN区切り一括描画）─────────────────
-plot(ax, bx, by, '-', 'Color', [0.92 0.92 0.92], 'LineWidth', 0.5);
+plot(ax, bx, by, '-', 'Color', [0.45 0.45 0.45], 'LineWidth', 0.7);
 
 % ── 90% 精度ライン（等高線）──────────────────────────────────────
 [~, hc] = contour(ax, X_grid, Y_grid, acc_combined, [0.9 0.9]);
-hc.LineColor = [1.0 1.0 1.0];
+hc.LineColor = [0.1 0.1 0.1];
 hc.LineWidth = 2.5;
 hc.LineStyle = '-';
 
@@ -91,23 +92,23 @@ hc2.LineStyle = '--';
 plot(ax, etc_xy(1), etc_xy(2), 'p', ...
     'MarkerSize', 20, 'LineWidth', 2.0, ...
     'MarkerFaceColor', [1.0 0.15 0.15], ...
-    'MarkerEdgeColor', [1.0 1.0 1.0]);
+    'MarkerEdgeColor', 'k');
 text(ax, etc_xy(1)+18, etc_xy(2)+5, 'ETC', ...
-    'Color', [1.0 1.0 1.0], 'FontSize', 13, 'FontWeight', 'bold', ...
-    'BackgroundColor', [0.15 0.15 0.15], 'Margin', 2);
+    'Color', 'k', 'FontSize', 13, 'FontWeight', 'bold', ...
+    'BackgroundColor', 'w', 'Margin', 2);
 
 % ── 凡例テキスト（手動配置）──────────────────────────────────────
 x_leg = x_vec(end) - 180;
 y_leg = y_vec(end) - 30;
 dy    = 28;
-text(ax, x_leg, y_leg,      '■ 識別精度 (Combined)', 'Color','w','FontSize',10,'FontWeight','bold');
-text(ax, x_leg, y_leg-dy,   '── 90% ライン',          'Color','w','FontSize',10);
+text(ax, x_leg, y_leg,      '■ 識別精度 (Combined)', 'Color','k','FontSize',10,'FontWeight','bold');
+text(ax, x_leg, y_leg-dy,   '── 90% ライン',          'Color','k','FontSize',10);
 text(ax, x_leg, y_leg-2*dy, '-- 50% ライン',          'Color',[1.0 0.6 0.3],'FontSize',10);
-text(ax, x_leg, y_leg-3*dy, '— 建物輪郭',             'Color',[0.75 0.75 0.75],'FontSize',10);
-plot(ax, x_leg-18, y_leg,      's','MarkerSize',8,'MarkerFaceColor','none','MarkerEdgeColor','w');
-plot(ax, x_leg-18, y_leg-dy,   '-','Color','w','LineWidth',2.5);
+text(ax, x_leg, y_leg-3*dy, '— 建物輪郭',             'Color',[0.3 0.3 0.3],'FontSize',10);
+plot(ax, x_leg-18, y_leg,      's','MarkerSize',8,'MarkerFaceColor','none','MarkerEdgeColor','k');
+plot(ax, x_leg-18, y_leg-dy,   '-','Color','k','LineWidth',2.5);
 plot(ax, x_leg-18, y_leg-2*dy, '--','Color',[1.0 0.5 0.2],'LineWidth',1.5);
-plot(ax, x_leg-18, y_leg-3*dy, '-','Color',[0.85 0.85 0.85],'LineWidth',0.8);
+plot(ax, x_leg-18, y_leg-3*dy, '-','Color',[0.45 0.45 0.45],'LineWidth',0.8);
 
 % ── 軸・ラベル設定 ─────────────────────────────────────────────
 axis(ax,'equal','tight');
@@ -119,13 +120,13 @@ ax.GridAlpha     = 0.4;
 ax.GridLineStyle = ':';
 ax.TickDir       = 'out';
 ax.FontSize      = 11;
-ax.Color         = [0.05 0.05 0.05];
+ax.Color         = 'w';
 
 xlabel(ax, 'East [m]',  'FontSize', 13);
 ylabel(ax, 'North [m]', 'FontSize', 13);
 title(ax, sprintf(['識別精度マップ × PLATEAU建物配置\n', ...
     'Combined手法 | UAV高度%dm | ETC(−250,−300) | 壁透過損%ddB/棟 | 格子%d×%d'], ...
-    uav_z, wall_loss_db, N_grid, N_grid), 'FontSize', 12, 'Color', 'w');
+    uav_z, wall_loss_db, N_grid, N_grid), 'FontSize', 12);
 
 % カラーバー
 cb = colorbar(ax);
@@ -139,13 +140,14 @@ ann_str = sprintf('LOS %.1f%%: Acc=1.000\nNLOS %.1f%%: Acc=%.3f\n全体平均: A
     100*mean(los_mask(:)),  100*mean(nlos_mask(:)), ...
     mean(acc_combined(nlos_mask)), mean(acc_combined(:)));
 text(ax, x_vec(1)+15, y_vec(1)+60, ann_str, ...
-    'Color','w','FontSize',10,'BackgroundColor',[0.1 0.1 0.1], ...
+    'Color','k','FontSize',10,'BackgroundColor','w', ...
     'Margin',5,'VerticalAlignment','bottom','FontName','FixedWidth');
 
 %% ─────────────────────────────────────────────────────────────────
 %% 保存
 %% ─────────────────────────────────────────────────────────────────
 out_path = fullfile(base_dir, 'plateau_overlay.png');
+apply_paper_style(fig);
 saveas(fig, out_path);
 fprintf('保存: raytracing/plateau_overlay.png\n');
 disp('plot_overlay: OK');

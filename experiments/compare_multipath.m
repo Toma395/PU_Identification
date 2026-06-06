@@ -24,6 +24,7 @@ base_dir = fileparts(which('compare_multipath'));
 addpath(fullfile(base_dir,'..','signals'));
 addpath(fullfile(base_dir,'..','features'));
 addpath(fullfile(base_dir,'..','classifier'));
+addpath(fullfile(base_dir,'..'));          % apply_paper_style
 
 %% ─────────────────────────────────────────────────────────────────
 %% パラメータ
@@ -170,43 +171,42 @@ lstyles = {'-','--','-.'};
 colors  = lines(3);
 
 %% ① パス数 vs 精度・F1（2段）
-fig1 = figure('Visible','off','Position',[0 0 900 700]);
+fig1 = figure('Visible','off','Color','w','Position',[0 0 900 700]);
 
 subplot(2,1,1);
 hold on; grid on; box on;
 for mi = 1:3
     plot(L_list, acc_mp(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','o','MarkerSize',7,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',8);
-yline(0.5,'k:','50%','LabelHorizontalAlignment','left','FontSize',8);
-xlabel('マルチパス数 L（1=直接波のみ）');
-ylabel('Accuracy');
-title(sprintf('マルチパス vs ETC検出精度  (SNR=%ddB, τ_{max}=%dサンプル=%.1fμs)', ...
-    snr_db, tau_max, tau_max/44e6*1e6));
-legend('Location','southwest'); ylim([0.4 1.05]);
+yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+yline(0.5,'k:','50%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+xlabel('マルチパス数 L（1=直接波のみ）','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title(sprintf('マルチパス vs ETC検出精度  (SNR=%ddB, \\tau_{max}=%dサンプル=%.1f\\mus)', ...
+    snr_db, tau_max, tau_max/44e6*1e6),'FontSize',16);
+legend('Location','southwest','FontSize',12); ylim([0.4 1.05]);
 set(gca,'XTick',L_list);
 
 subplot(2,1,2);
 hold on; grid on; box on;
 for mi = 1:3
     plot(L_list, f1_mp(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','s','MarkerSize',7,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','s','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','F1=0.9','LabelHorizontalAlignment','left','FontSize',8);
-xlabel('マルチパス数 L');
-ylabel('F1 Score');
-title('マルチパス vs F1スコア');
-legend('Location','southwest'); ylim([0.4 1.05]);
+yline(0.9,'k--','F1=0.9','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+xlabel('マルチパス数 L','FontSize',14);
+ylabel('F1 Score','FontSize',14);
+title('マルチパス vs F1スコア','FontSize',16);
+legend('Location','southwest','FontSize',12); ylim([0.4 1.05]);
 set(gca,'XTick',L_list);
 
+apply_paper_style(fig1);
 saveas(fig1, fullfile(base_dir,'mp_accuracy.png'));
 fprintf('\n保存: experiments/mp_accuracy.png\n');
 
 %% ② 相関波形の可視化（L=1 vs L=10）
-fig2 = figure('Visible','off','Position',[0 0 1100 500]);
-L_labels  = {sprintf('L=1（直接波のみ、τ_{max}=%dサンプル）', tau_max), ...
-             sprintf('L=10（10パス、τ_{max}=%dサンプル）', tau_max)};
+fig2 = figure('Visible','off','Color','w','Position',[0 0 1100 500]);
 plot_titles = {'L=1: 直接波のみ', 'L=10: 10マルチパス'};
 
 for pi = 1:2
@@ -221,38 +221,41 @@ for pi = 1:2
 
     n_show = min(length(cv), 4*tau_max + size(repelem(double(uw(:)),sps),1));
     t_ax   = (0:n_show-1);
-    plot(t_ax, abs(cv(1:n_show)), 'b-', 'LineWidth',0.8, 'DisplayName','|相関|');
+    plot(t_ax, abs(cv(1:n_show)), 'b-', 'LineWidth',2.0, 'DisplayName','|相関|');
 
-    % UW長（理想ピーク位置）をマーク
     uw_len = sps * length(uw);
-    xline(uw_len, 'r--', 'UW長', 'LabelHorizontalAlignment','left', 'FontSize',8, 'LineWidth',1.2);
+    xline(uw_len, 'r--', 'UW長', 'LabelHorizontalAlignment','left', ...
+        'FontSize',12, 'LineWidth',1.5, 'HandleVisibility','off');
 
     [pv, pi_idx] = max(abs(cv(1:n_show)));
-    plot(pi_idx-1, pv, 'r*', 'MarkerSize',12, 'DisplayName', sprintf('ピーク=%.3f', pv));
+    plot(pi_idx-1, pv, 'r*', 'MarkerSize',14, 'LineWidth',1.5, ...
+        'DisplayName', sprintf('ピーク=%.3f', pv));
 
-    xlabel('ラグ [サンプル]');
-    ylabel('正規化相関');
-    title(plot_titles{pi});
-    legend('Location','northeast','FontSize',8);
+    xlabel('ラグ [サンプル]','FontSize',14);
+    ylabel('正規化相関','FontSize',14);
+    title(plot_titles{pi},'FontSize',16);
+    legend('Location','northeast','FontSize',12);
     ylim([0, max(abs(cv(1:n_show)))*1.15 + eps]);
 end
 sgtitle('プリアンブル相関波形  L=1 vs L=10  (ETC + AWGN SNR=20dB, seed=37)', ...
-    'FontSize',12);
+    'FontSize',15);
+apply_paper_style(fig2);
 saveas(fig2, fullfile(base_dir,'mp_corr_shape.png'));
 fprintf('保存: experiments/mp_corr_shape.png\n');
 
 %% ③ 複合条件（マルチパス＋UAV干渉）
-fig3 = figure('Visible','off','Position',[0 0 900 480]);
+fig3 = figure('Visible','off','Color','w','Position',[0 0 900 480]);
 hold on; grid on; box on;
 for mi = 1:3
     plot(sir_list_cmb, acc_cmb(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','o','MarkerSize',7,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',8);
-xlabel('SIR [dB]  (ETC電力 / UAV干渉電力)');
-ylabel('Accuracy');
-title(sprintf('複合条件: マルチパス(L=%d) + UAV干渉  (SNR=%ddB)', L_cmb, snr_db));
-legend('Location','southwest'); ylim([0.4 1.05]);
+yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+xlabel('SIR [dB]  (ETC電力 / UAV干渉電力)','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title(sprintf('複合条件: マルチパス(L=%d) + UAV干渉  (SNR=%ddB)', L_cmb, snr_db),'FontSize',16);
+legend('Location','southwest','FontSize',12); ylim([0.4 1.05]);
+apply_paper_style(fig3);
 saveas(fig3, fullfile(base_dir,'mp_sir_combined.png'));
 fprintf('保存: experiments/mp_sir_combined.png\n');
 

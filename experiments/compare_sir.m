@@ -23,6 +23,7 @@ base_dir = fileparts(which('compare_sir'));
 addpath(fullfile(base_dir,'..','signals'));
 addpath(fullfile(base_dir,'..','features'));
 addpath(fullfile(base_dir,'..','classifier'));
+addpath(fullfile(base_dir,'..'));          % apply_paper_style
 
 %% ─────────────────────────────────────────────────────────────────
 %% パラメータ
@@ -185,41 +186,42 @@ lstyles = {'-','--','-.'};
 colors  = lines(3);
 
 %% ① SIR vs 精度・F1（2段）
-fig1 = figure('Visible','off','Position',[0 0 900 700]);
+fig1 = figure('Visible','off','Color','w','Position',[0 0 900 700]);
 
 subplot(2,1,1);
 hold on; grid on; box on;
 for mi = 1:3
     plot(sir_list, acc_q1(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','o','MarkerSize',6,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',8);
-yline(0.5,'k:','50%','LabelHorizontalAlignment','left','FontSize',8);
-xlabel('SIR [dB]  (ETC電力 / UAV干渉電力)');
-ylabel('Accuracy');
-title('問い1: SIR vs ETC検出精度  (AWGN SNR=20dB固定)');
-legend('Location','southeast'); ylim([0.4 1.05]);
+yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+yline(0.5,'k:','50%','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+xlabel('SIR [dB]  (ETC電力 / UAV干渉電力)','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title('問い1: SIR vs ETC検出精度  (AWGN SNR=20dB固定)','FontSize',16);
+legend('Location','southeast','FontSize',12); ylim([0.4 1.05]);
 xlim([sir_list(end)-2, sir_list(1)+2]);
 
 subplot(2,1,2);
 hold on; grid on; box on;
 for mi = 1:3
     plot(sir_list, f1_q1(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','s','MarkerSize',6,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','s','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','F1=0.9','LabelHorizontalAlignment','left','FontSize',8);
-xlabel('SIR [dB]');
-ylabel('F1 Score');
-title('SIR vs F1スコア');
-legend('Location','southeast'); ylim([0.4 1.05]);
+yline(0.9,'k--','F1=0.9','LabelHorizontalAlignment','left','FontSize',12,'HandleVisibility','off');
+xlabel('SIR [dB]','FontSize',14);
+ylabel('F1 Score','FontSize',14);
+title('SIR vs F1スコア','FontSize',16);
+legend('Location','southeast','FontSize',12); ylim([0.4 1.05]);
 xlim([sir_list(end)-2, sir_list(1)+2]);
 
+apply_paper_style(fig1);
 saveas(fig1, fullfile(base_dir,'sir_accuracy.png'));
 fprintf('\n保存: experiments/sir_accuracy.png\n');
 
 %% ② ROC曲線（問い1: SIR=0dBと-5dBの2条件）
 roc_sirs = [0, -5];
-fig2 = figure('Visible','off','Position',[0 0 900 420]);
+fig2 = figure('Visible','off','Color','w','Position',[0 0 900 420]);
 for pi = 1:2
     si = find(sir_list == roc_sirs(pi), 1);
     subplot(1,2,pi);
@@ -227,40 +229,43 @@ for pi = 1:2
     for mi = 1:3
         [fpr,tpr] = roc_curve(labels_q1, scores_q1(:,mi,si));
         auc = trapz(fpr,tpr);
-        plot(fpr, tpr, lstyles{mi}, 'Color',colors(mi,:), 'LineWidth',1.5, ...
+        plot(fpr, tpr, lstyles{mi}, 'Color',colors(mi,:), 'LineWidth',2.0, ...
             'DisplayName', sprintf('%s (AUC=%.3f)', mnames{mi}, auc));
     end
-    plot([0 1],[0 1],'k:','HandleVisibility','off');
-    xlabel('FPR'); ylabel('TPR');
-    title(sprintf('ROC @ SIR=%+ddB', roc_sirs(pi)));
-    legend('Location','southeast','FontSize',7);
+    plot([0 1],[0 1],'k:','LineWidth',1.0,'HandleVisibility','off');
+    xlabel('FPR','FontSize',14); ylabel('TPR','FontSize',14);
+    title(sprintf('ROC @ SIR=%+ddB', roc_sirs(pi)),'FontSize',16);
+    legend('Location','southeast','FontSize',11);
     xlim([0 1]); ylim([0 1]);
 end
+apply_paper_style(fig2);
 saveas(fig2, fullfile(base_dir,'sir_roc.png'));
 fprintf('保存: experiments/sir_roc.png\n');
 
 %% ③ 干渉UAV数 vs 精度（問い2）
-fig3 = figure('Visible','off','Position',[0 0 900 500]);
+fig3 = figure('Visible','off','Color','w','Position',[0 0 900 500]);
 ax3 = axes(fig3);
 hold(ax3,'on'); grid(ax3,'on'); box(ax3,'on');
 for mi = 1:3
     plot(ax3, n_uav_list, acc_q2(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
-        'LineWidth',1.8,'Marker','o','MarkerSize',7,'DisplayName',mnames{mi});
+        'LineWidth',2.0,'Marker','o','MarkerSize',8,'DisplayName',mnames{mi});
 end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',8);
-xlabel(ax3,'干渉UAV数');
-ylabel(ax3,'Accuracy');
-title(ax3, sprintf('問い2: 干渉UAV数 vs ETC検出精度  (SIR=%.0fdB/UAV)', sir_q2_db));
+yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
+xlabel(ax3,'干渉UAV数','FontSize',14);
+ylabel(ax3,'Accuracy','FontSize',14);
+title(ax3, sprintf('問い2: 干渉UAV数 vs ETC検出精度  (SIR=%.0fdB/UAV)', sir_q2_db),'FontSize',16);
 % 上軸に実効SIR表示
 ax3b = axes(fig3,'Position',ax3.Position, ...
     'XAxisLocation','top','YAxisLocation','right','Color','none');
-ax3b.XTick     = n_uav_list;
-ax3b.XLim      = ax3.XLim;
+ax3b.XTick      = n_uav_list;
+ax3b.XLim       = ax3.XLim;
 ax3b.XTickLabel = arrayfun(@(x) sprintf('%.1fdB',x), sir_eff, 'UniformOutput',false);
-xlabel(ax3b,'実効SIR [dB]');
+ax3b.FontSize   = 13;
+xlabel(ax3b,'実効SIR [dB]','FontSize',13);
 ax3b.YTick = []; ax3b.YColor = 'none';
 axes(ax3);
-legend(ax3,'Location','northeast','FontSize',9);
+legend(ax3,'Location','northeast','FontSize',12);
+apply_paper_style(fig3);
 saveas(fig3, fullfile(base_dir,'nuav_accuracy.png'));
 fprintf('保存: experiments/nuav_accuracy.png\n');
 

@@ -24,6 +24,7 @@ addpath(fullfile(base_dir,'..','signals'));
 addpath(fullfile(base_dir,'..','features'));
 addpath(fullfile(base_dir,'..','classifier'));
 addpath(fullfile(base_dir,'..','citymodel'));
+addpath(fullfile(base_dir,'..'));          % apply_paper_style
 
 %% ─────────────────────────────────────────────────────────────────
 %% パラメータ
@@ -182,7 +183,7 @@ fprintf('  NLOS : 中央値=%.1fdB  10%%ile=%.1fdB  最大=%.1fdB\n', ...
 %% ─────────────────────────────────────────────────────────────────
 %% プロット出力
 %% ─────────────────────────────────────────────────────────────────
-fa = {'Visible','off','Position',[0 0 1000 900]};
+fa = {'Visible','off','Color','w','Position',[0 0 1000 900]};
 ap = [0.08 0.08 0.80 0.83];
 
 % ① LOS/NLOSマップ (0=NLOS暗, 1=LOS明)
@@ -192,11 +193,12 @@ colormap(ax, [0.12 0.15 0.40; 0.95 0.88 0.35]);
 axis(ax,'xy'); axis(ax,'equal','tight'); grid(ax,'on');
 hold(ax,'on');
 plot(ax, etc_xy(1), etc_xy(2), 'r*','MarkerSize',14,'LineWidth',2.5);
-text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',10,'FontWeight','bold');
+text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',14,'FontWeight','bold');
 xlabel(ax,'East [m]'); ylabel(ax,'North [m]');
 title(ax, sprintf('LOS/NLOSマップ (UAV z=%dm)  黄:LOS %.1f%% / 青:NLOS %.1f%%', ...
-    uav_z, 100*mean(los_mask(:)), 100*mean(nlos_mask(:))), 'FontSize',11);
+    uav_z, 100*mean(los_mask(:)), 100*mean(nlos_mask(:))), 'FontSize',14);
 cb=colorbar(ax); cb.Ticks=[0.25 0.75]; cb.TickLabels={'NLOS','LOS'};
+apply_paper_style(fig);
 saveas(fig, fullfile(base_dir,'plateau_los_map.png')); close(fig);
 fprintf('保存: raytracing/plateau_los_map.png\n');
 
@@ -207,11 +209,12 @@ imagesc(ax, x_vec, y_vec, nw_clamp);
 colormap(ax, [0 0 0; parula(5)]);   % 0棟=黒, 1〜5棟=parula
 clim(ax,[0 5]); axis(ax,'xy'); axis(ax,'equal','tight'); grid(ax,'on');
 hold(ax,'on');
-plot(ax, etc_xy(1), etc_xy(2), 'w*','MarkerSize',14,'LineWidth',2.5);
-text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','w','FontSize',10,'FontWeight','bold');
+plot(ax, etc_xy(1), etc_xy(2), 'r*','MarkerSize',14,'LineWidth',2.5);
+text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',14,'FontWeight','bold');
 xlabel(ax,'East [m]'); ylabel(ax,'North [m]');
-title(ax, sprintf('貫通建物数マップ (壁透過損 %ddB/棟)', wall_loss_db), 'FontSize',11);
+title(ax, sprintf('貫通建物数マップ (壁透過損 %ddB/棟)', wall_loss_db), 'FontSize',14);
 cb=colorbar(ax); cb.Label.String='貫通建物数 [棟] (5+は5に丸め)';
+apply_paper_style(fig);
 saveas(fig, fullfile(base_dir,'plateau_walls_map.png')); close(fig);
 fprintf('保存: raytracing/plateau_walls_map.png\n');
 
@@ -220,12 +223,13 @@ fig = figure(fa{:});  ax = axes(fig,'Position',ap);
 imagesc(ax, x_vec, y_vec, snr_etc_map);
 colormap(ax, turbo(256)); axis(ax,'xy'); axis(ax,'equal','tight'); grid(ax,'on');
 hold(ax,'on');
-contour(ax, X_grid, Y_grid, snr_etc_map, [0 0], 'w-','LineWidth',1.5);   % 0dBライン
-plot(ax, etc_xy(1), etc_xy(2), 'w*','MarkerSize',14,'LineWidth',2.5);
-text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','w','FontSize',10,'FontWeight','bold');
+contour(ax, X_grid, Y_grid, snr_etc_map, [0 0], 'k-','LineWidth',1.5);   % 0dBライン
+plot(ax, etc_xy(1), etc_xy(2), 'r*','MarkerSize',14,'LineWidth',2.5);
+text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',14,'FontWeight','bold');
 xlabel(ax,'East [m]'); ylabel(ax,'North [m]');
-title(ax,'ETC受信SNRマップ [dB]  (白線: 0 dB)','FontSize',11);
+title(ax,'ETC受信SNRマップ [dB]  (黒線: 0 dB)','FontSize',14);
 cb=colorbar(ax); cb.Label.String='受信SNR [dB]';
+apply_paper_style(fig);
 saveas(fig, fullfile(base_dir,'plateau_snr_map.png')); close(fig);
 fprintf('保存: raytracing/plateau_snr_map.png\n');
 
@@ -238,14 +242,16 @@ for mi = 1:3
     colormap(ax, parula(256)); clim(ax,[0.4 1.0]);
     axis(ax,'xy'); axis(ax,'equal','tight'); grid(ax,'on');
     hold(ax,'on');
-    contour(ax, X_grid, Y_grid, a_mi, [0.9 0.9], 'w-','LineWidth',2.0);  % 90%ライン
+    [~, hc90] = contour(ax, X_grid, Y_grid, a_mi, [0.9 0.9], '-','LineWidth',2.0);
+    hc90.LineColor = [0.1 0.1 0.1];  % 90%ライン（暗色）
     plot(ax, etc_xy(1), etc_xy(2), 'r*','MarkerSize',14,'LineWidth',2.5);
-    text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',10,'FontWeight','bold');
+    text(ax, etc_xy(1)+12, etc_xy(2)-12,'ETC','Color','r','FontSize',14,'FontWeight','bold');
     xlabel(ax,'East [m]'); ylabel(ax,'North [m]');
-    title(ax, sprintf('%s\n全体=%.3f  LOS=%.3f  NLOS=%.3f  (白線:90%%ライン)', ...
+    title(ax, sprintf('%s\n全体=%.3f  LOS=%.3f  NLOS=%.3f  (黒線:90%%ライン)', ...
         mnames{mi}, mean(a_mi(:)), mean(a_mi(los_mask)), mean(a_mi(nlos_mask))), ...
-        'FontSize',10);
+        'FontSize',14);
     cb=colorbar(ax); cb.Label.String='Accuracy';
+    apply_paper_style(fig);
     saveas(fig, fullfile(base_dir, pnames{mi})); close(fig);
     fprintf('保存: raytracing/%s\n', pnames{mi});
 end
