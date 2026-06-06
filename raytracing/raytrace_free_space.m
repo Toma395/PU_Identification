@@ -14,8 +14,9 @@ addpath(fullfile(base_dir, '..', 'classifier'));
 % ──────────────────────────────────────────
 % ETC (PU)  : ARIB STD-T75 路側機
 %   5.8GHz, Ptx=10dBm, 占有BW=4.4MHz, アンテナ利得 ≈ 0dBi（等方性近似）
-% UAV (SU)  : 802.11a 5GHz帯（ch36 = 5.18GHz）
+% UAV (SU)  : 5.8GHz帯 空きチャネル（5.82GHz, DSRCサブバンド）
 %   Ptx=20dBm, BW=20MHz, アンテナ利得 ≈ 0dBi
+%   ※ETCと同一DSRC帯域内（プランB: 将来の5.8GHz帯ドローン解禁シナリオ）
 % 受信機雑音指数: 5dB（共通）
 % 参照温度: 290K（IEEE標準）
 % ──────────────────────────────────────────
@@ -23,7 +24,7 @@ f_etc   = 5.80e9;   % [Hz]  ETC中心周波数
 ptx_etc = 10;       % [dBm] ETC送信電力
 bw_etc  = 4.4e6;    % [Hz]  ETC受信バンド幅
 
-f_uav   = 5.18e9;   % [Hz]  UAV中心周波数（802.11a ch36）
+f_uav   = 5.82e9;   % [Hz]  UAV中心周波数（DSRC帯域内 空きチャネル）
 ptx_uav = 20;       % [dBm] UAV送信電力
 bw_uav  = 20e6;     % [Hz]  UAV受信バンド幅
 

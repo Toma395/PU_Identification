@@ -23,8 +23,8 @@ f_etc   = 5.80e9;  % Hz
 ptx_etc = 10;      % dBm
 bw_etc  = 4.4e6;   % Hz
 
-% UAV (SU): 802.11a ch36
-f_uav   = 5.18e9;  % Hz
+% UAV (SU): 5.8GHz帯 空きチャネル（5.82GHz, DSRCサブバンド, プランB）
+f_uav   = 5.82e9;  % Hz
 ptx_uav = 20;      % dBm
 bw_uav  = 20e6;    % Hz
 
