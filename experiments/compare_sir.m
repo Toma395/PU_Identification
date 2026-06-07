@@ -37,6 +37,7 @@ scores_q1 = zeros(N_trials*2, 3, N_sir);
 labels_q1 = [ones(N_trials,1); zeros(N_trials,1)];
 acc_q1    = zeros(N_sir, 3);
 f1_q1     = zeros(N_sir, 3);
+auc_q1    = zeros(N_sir, 3);
 
 for si = 1:N_sir
     sir_db  = sir_list(si);
@@ -65,13 +66,25 @@ for si = 1:N_sir
     fprintf('  SIR=%+4ddB  完了\n', sir_db);
 end
 
+% Q1 AUC（scores_q1 に全スコア保存済み）
+for si = 1:N_sir
+    for mi = 1:3
+        [fpr_a, tpr_a] = roc_curve(labels_q1, scores_q1(:,mi,si));
+        auc_q1(si,mi)  = trapz(fpr_a, tpr_a);
+    end
+end
+
 %% 問い2: 干渉UAV数 vs 検出精度
 fprintf('\n=== 問い2: 干渉UAV数 vs 検出精度 (SIR=%.0fdB/UAV) ===\n', sir_q2_db);
 
 acc_q2  = zeros(N_nuav, 3);
+auc_q2  = zeros(N_nuav, 3);
 sir_eff = sir_q2_db - 10*log10(n_uav_list);   % 実効SIR [dB]
-kurt_q2_etc = zeros(N_nuav, 1);   % 尖度診断用（ETC正例）
-kurt_q2_uav = zeros(N_nuav, 1);   % 尖度診断用（UAV負例）
+kurt_q2_etc   = zeros(N_nuav, 1);   % 尖度診断用（ETC正例）
+kurt_q2_uav   = zeros(N_nuav, 1);   % 尖度診断用（UAV負例）
+roc_nuav_list = [8, 15];            % ROC曲線描画用n_uav
+scores_roc_q2 = cell(1, length(roc_nuav_list));
+labels_roc_q2 = cell(1, length(roc_nuav_list));
 
 for ni = 1:N_nuav
     n_uav   = n_uav_list(ni);
@@ -123,6 +136,20 @@ for ni = 1:N_nuav
     end
     kurt_q2_etc(ni) = mean(kurt_buf_etc);
     kurt_q2_uav(ni) = mean(kurt_buf_uav);
+
+    % AUC計算（閾値非依存）
+    for mi = 1:3
+        [fpr_a, tpr_a] = roc_curve(labels_q2, scores_q2(:,mi));
+        auc_q2(ni,mi)  = trapz(fpr_a, tpr_a);
+    end
+
+    % ROC描画用スコア保存
+    ric = find(roc_nuav_list == n_uav, 1);
+    if ~isempty(ric)
+        scores_roc_q2{ric} = scores_q2;
+        labels_roc_q2{ric} = labels_q2;
+    end
+
     fprintf('  n_UAV=%2d  実効SIR=%5.1fdB  完了\n', n_uav, sir_eff(ni));
 end
 
@@ -157,6 +184,23 @@ for ni = 1:N_nuav
         n_uav_list(ni), sir_eff(ni), kurt_q2_etc(ni), kurt_q2_uav(ni), ...
         kurt_q2_etc(ni) - kurt_q2_uav(ni));
 end
+
+fprintf('\n=== 問い1: SIR vs AUC（閾値非依存） ===\n');
+fprintf('%-8s | %-12s %-12s %-12s\n', 'SIR[dB]', mnames{:});
+fprintf('%s\n', repmat('-',1,48));
+for si = 1:N_sir
+    fprintf('%-8d | %-12.3f %-12.3f %-12.3f\n', sir_list(si), auc_q1(si,:));
+end
+
+fprintf('\n=== 問い2: 干渉UAV数 vs AUC（閾値非依存・Preamble/Combined等価性検証） ===\n');
+fprintf('%-6s %-10s | %-12s %-12s %-12s\n', 'n_UAV', '実効SIR', mnames{:});
+fprintf('%s\n', repmat('-',1,56));
+for ni = 1:N_nuav
+    fprintf('%-6d %-10.1f | %-12.3f %-12.3f %-12.3f\n', ...
+        n_uav_list(ni), sir_eff(ni), auc_q2(ni,:));
+end
+fprintf('\n理論予測: k_norm≈0(高n_uav)のとき combined=0.5×preamble → AUC(combined)=AUC(preamble)\n');
+fprintf('         combined Accuracy=1.0 は閾値効果であり特徴融合ゲインではない\n\n');
 
 fprintf('\n=== 90%%検出維持の下限SIR（問い1） ===\n');
 for mi = 1:3
@@ -266,6 +310,51 @@ sgtitle(fig3, sprintf('問い2: 干渉UAV数 vs ETC検出精度  (SIR=%.0fdB/UAV
     'FontSize', 14, 'Color', [0.15 0.15 0.15]);
 saveas(fig3, fullfile(base_dir,'nuav_accuracy.png'));
 fprintf('保存: experiments/nuav_accuracy.png\n');
+
+%% ④ 問い2 AUC分析: Preamble/Combined等価性 + ROC（閾値非依存）
+fig4 = figure('Visible','off','Color','w','Position',[0 0 1200 430]);
+
+% 左: AUC vs n_uav
+subplot(1,3,1);
+hold on; grid on; box on;
+for mi = 1:3
+    plot(n_uav_list, auc_q2(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
+        'LineWidth',2.0,'Marker','o','MarkerSize',6,'DisplayName',mnames{mi});
+end
+yline(0.9,'k--','AUC=0.9','LabelHorizontalAlignment','right','FontSize',11,'HandleVisibility','off');
+xlabel('干渉UAV数','FontSize',13);
+ylabel('AUC','FontSize',13);
+title('AUC vs n_{UAV}（閾値非依存）','FontSize',14);
+legend('Location','southwest','FontSize',11);
+xlim([0.5 15.5]); ylim([0.4 1.05]);
+xticks([1 5 8 10 15]);
+
+% 中・右: ROC at n_uav = roc_nuav_list
+roc_titles = {sprintf('ROC @ n_{UAV}=%d', roc_nuav_list(1)), ...
+              sprintf('ROC @ n_{UAV}=%d（最悪条件）', roc_nuav_list(2))};
+for ri = 1:length(roc_nuav_list)
+    subplot(1,3,ri+1);
+    hold on; grid on; box on;
+    if ~isempty(scores_roc_q2{ri})
+        for mi = 1:3
+            [fpr_r, tpr_r] = roc_curve(labels_roc_q2{ri}, scores_roc_q2{ri}(:,mi));
+            auc_r = trapz(fpr_r, tpr_r);
+            plot(fpr_r, tpr_r, lstyles{mi}, 'Color',colors(mi,:), 'LineWidth',2.0, ...
+                'DisplayName', sprintf('%s (AUC=%.3f)', mnames{mi}, auc_r));
+        end
+    end
+    plot([0 1],[0 1],'k:','LineWidth',1.0,'HandleVisibility','off');
+    xlabel('FPR','FontSize',13); ylabel('TPR','FontSize',13);
+    title(roc_titles{ri},'FontSize',13);
+    legend('Location','southeast','FontSize',10);
+    xlim([0 1]); ylim([0 1]);
+end
+
+apply_paper_style(fig4);
+sgtitle(fig4, '問い2 AUC分析: Preambleと結合の等価性検証（k_{norm}≈0の条件）', ...
+    'FontSize',12,'Color',[0.15 0.15 0.15]);
+saveas(fig4, fullfile(base_dir,'nuav_auc_roc.png'));
+fprintf('保存: experiments/nuav_auc_roc.png\n');
 
 disp('compare_sir: OK');
 
