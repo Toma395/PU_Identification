@@ -2,194 +2,173 @@
 % フェーズ4②: 地面2波モデル（直接波＋地面反射波）による識別性能評価
 %
 % モデル: H = h_direct + h_reflect  (鏡像法, 反射係数 Γ=-1)
-%   h_direct  = (λ/4πd1) * exp(-j*2π*fc*τ1)
-%   h_reflect = Γ * (λ/4πd2) * exp(-j*2π*fc*τ2)
 %
-% 距離依存の位相差により SNR が自由空間から大きく乖離する（深いヌルは −∞ dB）。
-% 自由空間との精度差を示すことで「どの伝搬現象が識別を壊すか」を切り分ける。
+% 改訂: モンテカルロ評価（N_mc=800 ランダム距離 × N_tmc=25 試行/点）
+%       散布+移動平均プロット + ヒストグラム追加
 
 base_dir = fileparts(which('raytrace_two_ray'));
 addpath(fullfile(base_dir, '..', 'signals'));
 addpath(fullfile(base_dir, '..', 'features'));
 addpath(fullfile(base_dir, '..', 'classifier'));
+addpath(fullfile(base_dir, '..'));   % apply_paper_style
 
 %% シナリオパラメータ
 h_tx  = 5;    % [m] ETC路側機アンテナ高
 h_rx  = 50;   % [m] UAV飛行高度
-Gamma = -1;   % 反射係数（完全平面地, 近水平入射 → -1）
+Gamma = -1;   % 反射係数（完全平面地）
 
-% ETC (PU): ARIB STD-T75
-f_etc   = 5.80e9;  % Hz
-ptx_etc = 10;      % dBm
-bw_etc  = 4.4e6;   % Hz
+f_etc   = 5.80e9;  ptx_etc = 10;  bw_etc = 4.4e6;
+f_uav   = 5.82e9;  ptx_uav = 20;  bw_uav = 20e6;
+nf_db   = 5;
 
-% UAV (SU): 5.8GHz帯 空きチャネル（5.82GHz, DSRCサブバンド, プランB）
-f_uav   = 5.82e9;  % Hz
-ptx_uav = 20;      % dBm
-bw_uav  = 20e6;    % Hz
+%% SNR細グリッド可視化（干渉縞確認）
+dist_fine         = 10:1:2000;
+snr_etc_fs_fine   = arrayfun(@(d) fs_snr_3d(d,h_tx,h_rx,f_etc,ptx_etc,nf_db,bw_etc), dist_fine);
+snr_etc_2ray_fine = arrayfun(@(d) tr_snr(d,  h_tx,h_rx,f_etc,ptx_etc,nf_db,bw_etc,Gamma), dist_fine);
 
-nf_db   = 5;       % dB 受信機雑音指数（共通）
-
-%% 電力パターン（細グリッド可視化: 干渉縞の確認）
-dist_fine = 10:1:2000;
-N_fine    = length(dist_fine);
-
-snr_etc_fs_fine   = arrayfun(@(d) fs_snr_3d(d, h_tx, h_rx, f_etc, ptx_etc, nf_db, bw_etc),   dist_fine);
-snr_etc_2ray_fine = arrayfun(@(d) tr_snr(d,   h_tx, h_rx, f_etc, ptx_etc, nf_db, bw_etc, Gamma), dist_fine);
-
-%% 識別精度評価（自由空間と同じ8距離点）
-dist_list = [10, 20, 50, 100, 200, 500, 1000, 2000];
-N_dist    = length(dist_list);
-N_trials  = 100;
-N_methods = 3;
-
+%% テンプレート
 [~, ep_ref] = gen_ETC('seed', 1);
 uw  = ep_ref.uw;
 sps = ep_ref.sps;
+thresh_fixed = [1.0, 0.5, 0.5];
+method_names = {'Kurtosis','Preamble','Combined'};
+N_methods    = 3;
 
-thresh_fixed = [1.0, 0.5, 0.5];  % kurtosis / preamble / combined
-acc_fs   = zeros(N_dist, N_methods);
-acc_2ray = zeros(N_dist, N_methods);
-f1_2ray  = zeros(N_dist, N_methods);
+%% ─── モンテカルロ評価 ────────────────────────────────────────────
+N_mc   = 800;    % ランダム距離サンプル数
+N_tmc  = 25;     % 信号試行数/距離点/クラス
+rng(42);
+d_mc = round(10 .^ (rand(1,N_mc) * log10(2000/10) + log10(10)));   % 対数一様 [10,2000]m
 
-snr_etc_fs_c   = zeros(1, N_dist);
-snr_etc_2ray_c = zeros(1, N_dist);
+fprintf('モンテカルロ評価: %d距離 × %d試行/クラス ...\n', N_mc, N_tmc);
 
-fprintf('2波モデル識別実験中 (%d距離 × %d試行/クラス) ...\n', N_dist, N_trials);
-for di = 1:N_dist
-    d = dist_list(di);
-    snr_e_fs = fs_snr_3d(d, h_tx, h_rx, f_etc, ptx_etc, nf_db, bw_etc);
-    snr_u_fs = fs_snr_3d(d, h_tx, h_rx, f_uav, ptx_uav, nf_db, bw_uav);
-    snr_e_2r = tr_snr(d, h_tx, h_rx, f_etc, ptx_etc, nf_db, bw_etc, Gamma);
-    snr_u_2r = tr_snr(d, h_tx, h_rx, f_uav, ptx_uav, nf_db, bw_uav, Gamma);
+snr_etc_mc = arrayfun(@(d) tr_snr(d,h_tx,h_rx,f_etc,ptx_etc,nf_db,bw_etc,Gamma), d_mc);
+snr_uav_mc = arrayfun(@(d) tr_snr(d,h_tx,h_rx,f_uav,ptx_uav,nf_db,bw_uav,Gamma), d_mc);
 
-    snr_etc_fs_c(di)   = snr_e_fs;
-    snr_etc_2ray_c(di) = snr_e_2r;
+acc_mc = zeros(N_mc, N_methods);
 
-    scores_fs  = zeros(N_trials*2, N_methods);
-    scores_2r  = zeros(N_trials*2, N_methods);
-    labels_true = zeros(N_trials*2, 1);
+for di = 1:N_mc
+    snr_e = snr_etc_mc(di);
+    snr_u = snr_uav_mc(di);
 
-    for ti = 1:N_trials
-        seed = ti * 37;
+    scores_mc  = zeros(N_tmc*2, N_methods);
+    labels_mc  = [ones(N_tmc,1); zeros(N_tmc,1)];
 
-        % ETC試行 (label=1)
-        [etc, ~] = gen_ETC('seed', seed);
-        k = calc_kurtosis(awgn_add(etc, snr_e_fs, true));
-        p = calc_preamble(awgn_add(etc, snr_e_fs, true), uw, sps);
-        scores_fs(ti,:) = make_scores(k, p);
-        k = calc_kurtosis(awgn_add(etc, snr_e_2r, true));
-        p = calc_preamble(awgn_add(etc, snr_e_2r, true), uw, sps);
-        scores_2r(ti,:) = make_scores(k, p);
-        labels_true(ti) = 1;
+    for ti = 1:N_tmc
+        seed_etc = ti * 37  + di * 10000;
+        seed_uav = ti * 41  + di * 10000 + 9999983;
 
-        % UAV試行 (label=0)
-        [uav, ~] = gen_UAV('seed', seed);
-        k = calc_kurtosis(awgn_add(uav, snr_u_fs, false));
-        p = calc_preamble(awgn_add(uav, snr_u_fs, false), uw, sps);
-        scores_fs(N_trials+ti,:) = make_scores(k, p);
-        k = calc_kurtosis(awgn_add(uav, snr_u_2r, false));
-        p = calc_preamble(awgn_add(uav, snr_u_2r, false), uw, sps);
-        scores_2r(N_trials+ti,:) = make_scores(k, p);
-        labels_true(N_trials+ti) = 0;
+        [etc, ~] = gen_ETC('seed', seed_etc);
+        k = calc_kurtosis(awgn_add(etc, snr_e, true));
+        p = calc_preamble(awgn_add(etc, snr_e, true), uw, sps);
+        scores_mc(ti,:) = make_scores(k, p);
+
+        [uav, ~] = gen_UAV('seed', seed_uav);
+        k = calc_kurtosis(awgn_add(uav, snr_u, false));
+        p = calc_preamble(awgn_add(uav, snr_u, false), uw, sps);
+        scores_mc(N_tmc+ti,:) = make_scores(k, p);
     end
 
     for mi = 1:N_methods
-        [acc_fs(di,mi),   ~]         = calc_acc_f1(labels_true, scores_fs(:,mi)  >= thresh_fixed(mi));
-        [acc_2ray(di,mi), f1_2ray(di,mi)] = calc_acc_f1(labels_true, scores_2r(:,mi) >= thresh_fixed(mi));
+        [acc_mc(di,mi),~] = calc_acc_f1(labels_mc, scores_mc(:,mi) >= thresh_fixed(mi));
     end
-    fprintf('  dist=%5dm  SNR_ETC:  自由空間=%5.1fdB  2波=%5.1fdB\n', d, snr_e_fs, snr_e_2r);
+
+    if mod(di, 200)==0
+        fprintf('  %d / %d 完了\n', di, N_mc);
+    end
 end
+fprintf('モンテカルロ完了\n');
 
-%% 結果表示
-method_names = {'Kurtosis only', 'Preamble only', 'Combined    '};
+%% サマリ
+fprintf('\n=== 2波モデル MC評価サマリ ===\n');
+fprintf('%-12s | %-10s %-10s %-10s\n','','Kurtosis','Preamble','Combined');
+fprintf('%s\n', repmat('-',1,44));
+fprintf('%-12s | %-10.3f %-10.3f %-10.3f\n','平均精度',    mean(acc_mc));
+fprintf('%-12s | %-10.3f %-10.3f %-10.3f\n','中央値精度',  median(acc_mc));
+fprintf('%-12s | %-10.3f %-10.3f %-10.3f\n','90%%ile点数', mean(acc_mc >= 0.9));
 
-fprintf('\n=== ETC受信SNR: 自由空間 vs 2波モデル ===\n');
-fprintf('%-10s | %-14s %-14s %-14s\n', '距離[m]', 'SNR_fs[dB]', 'SNR_2ray[dB]', '差[dB]');
-fprintf('%s\n', repmat('-',1,56));
-for di = 1:N_dist
-    diff_db = snr_etc_2ray_c(di) - snr_etc_fs_c(di);
-    fprintf('%-10d | %-14.1f %-14.1f %-+14.1f\n', dist_list(di), snr_etc_fs_c(di), snr_etc_2ray_c(di), diff_db);
-end
-
-fprintf('\n=== 識別精度: 自由空間 vs 2波モデル (Preamble only) ===\n');
-fprintf('%-10s | %-14s %-14s %-14s\n', '距離[m]', 'Acc_fs', 'Acc_2ray', '差');
-fprintf('%s\n', repmat('-',1,56));
-for di = 1:N_dist
-    fprintf('%-10d | %-14.4f %-14.4f %-+14.4f\n', dist_list(di), ...
-        acc_fs(di,2), acc_2ray(di,2), acc_2ray(di,2)-acc_fs(di,2));
-end
-
-fprintf('\n=== 識別精度 (2波モデル) vs 距離 ===\n');
-fprintf('%-10s | %-14s %-14s %-14s\n', '距離[m]', method_names{:});
-fprintf('%s\n', repmat('-',1,58));
-for di = 1:N_dist
-    fprintf('%-10d | %-14.4f %-14.4f %-14.4f\n', dist_list(di), acc_2ray(di,:));
-end
-
-fprintf('\n=== 精度差（2波 − 自由空間）===\n');
-fprintf('%-10s | %-14s %-14s %-14s\n', '距離[m]', method_names{:});
-fprintf('%s\n', repmat('-',1,58));
-for di = 1:N_dist
-    diff = acc_2ray(di,:) - acc_fs(di,:);
-    fprintf('%-10d | %-+14.4f %-+14.4f %-+14.4f\n', dist_list(di), diff);
-end
-
-fprintf('\n=== 識別精度90%%を維持できる最大距離（2波モデル）===\n');
+% 移動平均用ソート
+[d_sort, sort_idx] = sort(d_mc);
+ma_window = 80;   % 移動平均ウィンドウ幅
+acc_ma = zeros(N_mc, N_methods);
 for mi = 1:N_methods
-    idxs = find(acc_2ray(:,mi) >= 0.90);
-    if isempty(idxs)
-        fprintf('  %-16s: 最短10mでも90%%未達\n', method_names{mi});
-    else
-        fprintf('  %-16s: %5dm まで  (ETC 2波SNR ≈ %.1fdB)\n', ...
-            method_names{mi}, dist_list(idxs(end)), snr_etc_2ray_c(idxs(end)));
-    end
+    acc_ma(:,mi) = movmean(acc_mc(sort_idx,mi), ma_window);
 end
 
-%% プロット①: SNR vs 距離（自由空間 vs 2波 — 干渉縞）
-fig1 = figure('Visible','off');
-hold on; grid on; box on;
-plot(dist_fine, snr_etc_fs_fine,   'b-',  'LineWidth', 1.4, 'DisplayName', '自由空間 (Friis+3D)');
-plot(dist_fine, snr_etc_2ray_fine, 'r-',  'LineWidth', 0.7, 'DisplayName', '2波モデル (干渉縞)');
-yline(0,   'k--', '0 dB',   'LabelHorizontalAlignment','left','FontSize',8);
-yline(-10, 'k:',  '-10 dB', 'LabelHorizontalAlignment','left','FontSize',8);
-set(gca,'XScale','log');
-xlabel('水平距離 [m]'); ylabel('ETC受信SNR [dB]');
-title('ETC受信SNR vs 距離: 自由空間 vs 地面2波モデル (h_{tx}=5m, h_{rx}=50m)');
-legend('Location','northeast'); xlim([10 2000]); ylim([-40 60]);
-saveas(fig1, fullfile(base_dir, 'snr_vs_distance_two_ray.png'));
-fprintf('\nSNR比較グラフ保存: raytracing/snr_vs_distance_two_ray.png\n');
-
-%% プロット②: 識別精度 vs 距離（自由空間 vs 2波, 3手法）
+%% ─── プロット ────────────────────────────────────────────────────
 lstyles = {'-','--','-.'};
-colors_fs   = [0.2 0.6 0.9];  % 青系: 自由空間
-colors_2ray = [0.9 0.3 0.1];  % 赤系: 2波
+colors  = lines(N_methods);
 
-fig2 = figure('Visible','off');
+%% ①: SNR vs 距離（干渉縞）
+fig1 = figure('Visible','off','Color','w','Position',[0 0 900 500]);
 hold on; grid on; box on;
-for mi = 1:N_methods
-    plot(dist_list, acc_fs(:,mi), lstyles{mi}, 'Color', colors_fs, ...
-        'LineWidth',1.5,'Marker','o','MarkerSize',5, ...
-        'DisplayName', sprintf('%s (自由空間)', strtrim(method_names{mi})));
-    plot(dist_list, acc_2ray(:,mi), lstyles{mi}, 'Color', colors_2ray, ...
-        'LineWidth',1.5,'Marker','s','MarkerSize',5, ...
-        'DisplayName', sprintf('%s (2波)', strtrim(method_names{mi})));
-end
-yline(0.9,'k--','90%','LabelHorizontalAlignment','left','FontSize',8);
+plot(dist_fine, snr_etc_fs_fine,   '-',  'Color',[0.2 0.6 0.9],'LineWidth',1.8,...
+    'DisplayName','自由空間 (Friis+3D)');
+plot(dist_fine, snr_etc_2ray_fine, '-',  'Color',[0.9 0.3 0.1],'LineWidth',0.9,...
+    'DisplayName','2波モデル (干渉縞)');
+yline(0,   'k--','0 dB',   'LabelHorizontalAlignment','left','FontSize',11,'HandleVisibility','off');
+yline(-10, 'k:', '-10 dB', 'LabelHorizontalAlignment','left','FontSize',11,'HandleVisibility','off');
 set(gca,'XScale','log');
-xlabel('水平距離 [m]'); ylabel('Accuracy');
-title('識別精度 vs 距離: 自由空間 vs 地面2波モデル');
-legend('Location','southwest','FontSize',7,'NumColumns',2);
-ylim([0 1]);
-saveas(fig2, fullfile(base_dir, 'accuracy_vs_distance_two_ray.png'));
-fprintf('精度比較グラフ保存: raytracing/accuracy_vs_distance_two_ray.png\n');
+xlabel('水平距離 [m]','FontSize',14);
+ylabel('ETC受信SNR [dB]','FontSize',14);
+title(sprintf('ETC受信SNR vs 距離  h_{tx}=%.0fm, h_{rx}=%.0fm', h_tx, h_rx),'FontSize',16);
+legend('Location','northeast','FontSize',12);
+xlim([10 2000]); ylim([-50 60]);
+apply_paper_style(fig1);
+saveas(fig1, fullfile(base_dir,'snr_vs_distance_two_ray.png'));
+fprintf('\nSNR比較保存: raytracing/snr_vs_distance_two_ray.png\n');
+
+%% ②: MC散布 + 移動平均（3手法オーバーレイ）
+fig2 = figure('Visible','off','Color','w','Position',[0 0 900 520]);
+hold on; grid on; box on;
+% 散布（薄く）
+for mi = 1:N_methods
+    scatter(d_mc, acc_mc(:,mi), 10, colors(mi,:), 'o', ...
+        'MarkerFaceAlpha',0.15,'MarkerEdgeAlpha',0.15,'HandleVisibility','off');
+end
+% 移動平均（線）
+for mi = 1:N_methods
+    plot(d_sort, acc_ma(:,mi), lstyles{mi}, 'Color',colors(mi,:), ...
+        'LineWidth',2.5,'DisplayName',method_names{mi});
+end
+yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
+set(gca,'XScale','log');
+xlabel('水平距離 [m]（対数軸）','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title(sprintf('識別精度 vs 距離  2波モデル (N_{mc}=%d, MA窓=%d点)', N_mc, ma_window),'FontSize',16);
+legend('Location','southwest','FontSize',12);
+ylim([0.3 1.05]); xlim([10 2000]);
+apply_paper_style(fig2);
+saveas(fig2, fullfile(base_dir,'accuracy_vs_distance_two_ray.png'));
+fprintf('散布+移動平均保存: raytracing/accuracy_vs_distance_two_ray.png\n');
+
+%% ③: 精度ヒストグラム（3手法）
+fig3 = figure('Visible','off','Color','w','Position',[0 0 1100 420]);
+for mi = 1:N_methods
+    subplot(1,3,mi);
+    histogram(acc_mc(:,mi), 21, 'FaceColor',colors(mi,:), ...
+        'FaceAlpha',0.75,'EdgeColor','w');
+    hold on; grid on; box on;
+    xline(0.9,'k--','LineWidth',1.5,'HandleVisibility','off');
+    xlabel('Accuracy','FontSize',13);
+    ylabel('距離点数','FontSize',13);
+    title(method_names{mi},'FontSize',14);
+    xlim([0.3 1.05]);
+    pct_above = 100 * mean(acc_mc(:,mi) >= 0.9);
+    text(0.36, max(ylim)*0.85, sprintf('≥90%%: %.0f%%点', pct_above), ...
+        'FontSize',11,'Color','k');
+end
+sgtitle(sprintf('識別精度分布  2波モデル (N_{mc}=%d距離点)', N_mc), ...
+    'FontSize',14,'Color',[0.15 0.15 0.15]);
+apply_paper_style(fig3);
+saveas(fig3, fullfile(base_dir,'accuracy_mc_hist.png'));
+fprintf('ヒストグラム保存: raytracing/accuracy_mc_hist.png\n');
 
 disp('Phase 4-② raytrace_two_ray: OK');
 
 
 %% ローカル関数
 function snr_db = fs_snr_3d(d_m, h_tx, h_rx, f_hz, ptx_dbm, nf_db, bw_hz)
-    % 直接波のみ（3D経路長使用）
     c  = 3e8;
     d1 = sqrt(d_m^2 + (h_tx - h_rx)^2);
     pl_db = 20*log10(4*pi*d1*f_hz/c);
@@ -199,15 +178,13 @@ function snr_db = fs_snr_3d(d_m, h_tx, h_rx, f_hz, ptx_dbm, nf_db, bw_hz)
 end
 
 function snr_db = tr_snr(d_m, h_tx, h_rx, f_hz, ptx_dbm, nf_db, bw_hz, Gamma)
-    % 2波モデル: H = h_direct + Gamma*h_reflect
     c      = 3e8;
     lambda = c / f_hz;
-    d1 = sqrt(d_m^2 + (h_tx - h_rx)^2);   % 直接波経路長
-    d2 = sqrt(d_m^2 + (h_tx + h_rx)^2);   % 反射波経路長（鏡像法）
+    d1 = sqrt(d_m^2 + (h_tx - h_rx)^2);
+    d2 = sqrt(d_m^2 + (h_tx + h_rx)^2);
     h1 = (lambda/(4*pi*d1)) * exp(-1j*2*pi*f_hz*d1/c);
     h2 = Gamma * (lambda/(4*pi*d2)) * exp(-1j*2*pi*f_hz*d2/c);
     H  = h1 + h2;
-    % 有効経路損失（|H|→0の深いヌルは -50dB にクランプ）
     H_mag = max(abs(H), 10^(-50/20) * (lambda/(4*pi*d1)));
     pl_eff_db = -20*log10(H_mag);
     kB  = 1.38e-23; T0 = 290;

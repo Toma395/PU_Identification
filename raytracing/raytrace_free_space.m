@@ -4,22 +4,16 @@
 % Friis伝送公式で距離→受信SNRを計算し、3手法（尖度/プリアンブル/結合）の
 % 識別精度を距離の関数として評価する。
 % 反射・回折ゼロ、直接波のみ（フェーズ4の基準ライン）。
+%
+% 改訂: 距離点 40点(対数等間隔), 試行数 500, apply_paper_style 適用
 
 base_dir = fileparts(which('raytrace_free_space'));
 addpath(fullfile(base_dir, '..', 'signals'));
 addpath(fullfile(base_dir, '..', 'features'));
 addpath(fullfile(base_dir, '..', 'classifier'));
+addpath(fullfile(base_dir, '..'));   % apply_paper_style
 
 %% 伝搬シナリオパラメータ
-% ──────────────────────────────────────────
-% ETC (PU)  : ARIB STD-T75 路側機
-%   5.8GHz, Ptx=10dBm, 占有BW=4.4MHz, アンテナ利得 ≈ 0dBi（等方性近似）
-% UAV (SU)  : 5.8GHz帯 空きチャネル（5.82GHz, DSRCサブバンド）
-%   Ptx=20dBm, BW=20MHz, アンテナ利得 ≈ 0dBi
-%   ※ETCと同一DSRC帯域内（プランB: 将来の5.8GHz帯ドローン解禁シナリオ）
-% 受信機雑音指数: 5dB（共通）
-% 参照温度: 290K（IEEE標準）
-% ──────────────────────────────────────────
 f_etc   = 5.80e9;   % [Hz]  ETC中心周波数
 ptx_etc = 10;       % [dBm] ETC送信電力
 bw_etc  = 4.4e6;    % [Hz]  ETC受信バンド幅
@@ -30,10 +24,10 @@ bw_uav  = 20e6;     % [Hz]  UAV受信バンド幅
 
 nf_db   = 5;        % [dB]  受信機雑音指数（ETC/UAV共通）
 
-% 評価距離 [m]: 路側機〜UAV間の直線距離
-dist_list = [10, 20, 50, 100, 200, 500, 1000, 2000];
+% 距離: 10〜2000m 対数等間隔 40点
+dist_list = unique(round(logspace(1, log10(2000), 40)));
 N_dist    = length(dist_list);
-N_trials  = 100;    % クラスあたり試行数
+N_trials  = 500;    % クラスあたり試行数
 N_methods = 3;
 
 %% テンプレートETC生成（UW・sps取得用）
@@ -53,7 +47,6 @@ for di = 1:N_dist
 end
 
 %% 識別実験: 距離 × 3手法
-% ETC試行 → ETC TX SNRで劣化, UAV試行 → UAV TX SNRで劣化（送信機依存）
 thresh_fixed = [1.0, 0.5, 0.5];  % kurtosis / preamble / combined
 acc_mat = zeros(N_dist, N_methods);
 f1_mat  = zeros(N_dist, N_methods);
@@ -67,18 +60,17 @@ for di = 1:N_dist
     labels_true = zeros(N_trials*2, 1);
 
     for ti = 1:N_trials
-        seed = ti * 37;
+        seed_etc = ti * 37  + di * 10000;
+        seed_uav = ti * 41  + di * 10000 + 9999983;
 
-        % ETC試行 (true label = 1): ETC送信パワー・周波数でのSNR
-        [etc, ~] = gen_ETC('seed', seed);
+        [etc, ~] = gen_ETC('seed', seed_etc);
         etc_n = awgn_add(etc, snr_e, true);
         k = calc_kurtosis(etc_n);
         p = calc_preamble(etc_n, uw, sps);
         scores_d(ti, :)     = make_scores(k, p);
         labels_true(ti)     = 1;
 
-        % UAV試行 (true label = 0): UAV送信パワー・周波数でのSNR
-        [uav, ~] = gen_UAV('seed', seed);
+        [uav, ~] = gen_UAV('seed', seed_uav);
         uav_n = awgn_add(uav, snr_u, false);
         k = calc_kurtosis(uav_n);
         p = calc_preamble(uav_n, uw, sps);
@@ -104,14 +96,6 @@ for di = 1:N_dist
     fprintf('%-10d | %-14.4f %-14.4f %-14.4f\n', dist_list(di), acc_mat(di,:));
 end
 
-fprintf('\n=== F1スコア vs 距離 ===\n');
-fprintf('%-10s | %-14s %-14s %-14s\n', '距離[m]', method_names{:});
-fprintf('%s\n', repmat('-', 1, 58));
-for di = 1:N_dist
-    fprintf('%-10d | %-14.4f %-14.4f %-14.4f\n', dist_list(di), f1_mat(di,:));
-end
-
-% 90%精度を維持できる最大距離
 fprintf('\n=== 識別精度90%%を維持できる最大距離 ===\n');
 for mi = 1:N_methods
     idxs = find(acc_mat(:,mi) >= 0.90);
@@ -127,33 +111,39 @@ end
 lstyles = {'-', '--', '-.'};
 colors  = lines(N_methods);
 
-fig1 = figure('Visible', 'off');
+fig1 = figure('Visible','off','Color','w','Position',[0 0 900 500]);
 hold on; grid on; box on;
 for mi = 1:N_methods
     plot(dist_list, acc_mat(:,mi), lstyles{mi}, 'Color', colors(mi,:), ...
-        'LineWidth', 1.5, 'Marker', 'o', 'MarkerSize', 5, ...
+        'LineWidth', 2.0, 'Marker', 'o', 'MarkerSize', 5, ...
         'DisplayName', strtrim(method_names{mi}));
 end
-yline(0.9, 'k--', '90%', 'LabelHorizontalAlignment', 'left', 'FontSize', 8);
+yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
 set(gca, 'XScale', 'log');
-xlabel('ETC〜UAV 距離 [m]'); ylabel('Accuracy');
-title('識別精度 vs 距離（自由空間）');
-legend('Location', 'southwest'); ylim([0 1]);
+xlabel('ETC〜UAV 距離 [m]','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title(sprintf('識別精度 vs 距離（自由空間, N_{trials}=%d）', N_trials),'FontSize',16);
+legend('Location','southwest','FontSize',12);
+ylim([0.4 1.05]);
+apply_paper_style(fig1);
 saveas(fig1, fullfile(base_dir, 'accuracy_vs_distance_freespace.png'));
 fprintf('\n精度グラフ保存: raytracing/accuracy_vs_distance_freespace.png\n');
 
 %% プロット②: 識別精度 vs ETC受信SNR（距離から計算した物理SNR）
-fig2 = figure('Visible', 'off');
+fig2 = figure('Visible','off','Color','w','Position',[0 0 900 500]);
 hold on; grid on; box on;
 for mi = 1:N_methods
     plot(snr_etc_vec, acc_mat(:,mi), lstyles{mi}, 'Color', colors(mi,:), ...
-        'LineWidth', 1.5, 'Marker', 'o', 'MarkerSize', 5, ...
+        'LineWidth', 2.0, 'Marker', 'o', 'MarkerSize', 5, ...
         'DisplayName', strtrim(method_names{mi}));
 end
-yline(0.9, 'k--', '90%', 'LabelHorizontalAlignment', 'left', 'FontSize', 8);
-xlabel('ETC受信SNR [dB]（自由空間）'); ylabel('Accuracy');
-title('識別精度 vs ETC受信SNR（自由空間）');
-legend('Location', 'southeast'); ylim([0 1]);
+yline(0.9,'k--','90%','LabelHorizontalAlignment','right','FontSize',12,'HandleVisibility','off');
+xlabel('ETC受信SNR [dB]（自由空間）','FontSize',14);
+ylabel('Accuracy','FontSize',14);
+title(sprintf('識別精度 vs ETC受信SNR（自由空間, N_{trials}=%d）', N_trials),'FontSize',16);
+legend('Location','southeast','FontSize',12);
+ylim([0.4 1.05]);
+apply_paper_style(fig2);
 saveas(fig2, fullfile(base_dir, 'accuracy_vs_snr_freespace.png'));
 fprintf('SNRグラフ保存: raytracing/accuracy_vs_snr_freespace.png\n');
 
@@ -162,8 +152,6 @@ disp('Phase 4-① raytrace_free_space: OK');
 
 %% ローカル関数
 function snr_db = free_space_snr(d_m, f_hz, ptx_dbm, nf_db, bw_hz)
-    % Friis伝送公式: SNR = Ptx - PL - N_floor
-    % PL = 20*log10(4*pi*d*f/c) [dB], N_floor = 10*log10(kTB) + 30 + NF [dBm]
     c  = 3e8;
     pl_db = 20*log10(4*pi*d_m*f_hz/c);
     kB    = 1.38e-23;
